@@ -1,5 +1,9 @@
 # 排序算法动态可视化
 
+[![demo](https://img.shields.io/badge/demo-online-22d3a6?style=flat-square)](https://sun-shicheng.github.io/sorting-visualizer/)
+[![license](https://img.shields.io/badge/license-MIT-4b6ef5?style=flat-square)](LICENSE)
+[![no dependencies](https://img.shields.io/badge/dependencies-0-7c5cff?style=flat-square)](#实现说明)
+
 一个零依赖的单文件网页，用于**动态演示四种经典排序算法**的执行过程：快速排序、选择排序、冒泡排序、插入排序。
 
 打开 `index.html` 即可使用，无需构建、无需联网。
