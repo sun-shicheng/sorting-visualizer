@@ -4,7 +4,7 @@
 
 打开 `index.html` 即可使用，无需构建、无需联网。
 
-> 在线演示：`https://<你的用户名>.github.io/sorting-visualizer/`
+> 在线演示：https://sun-shicheng.github.io/sorting-visualizer/
 
 ![界面预览](preview.png)
 
