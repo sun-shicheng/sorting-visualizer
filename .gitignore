@@ -1,0 +1,9 @@
+# 操作系统 / 编辑器 / 工具产生的临时文件
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
+.idea/
+.vscode/
+node_modules/
