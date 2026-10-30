@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>排序算法可视化 · 快速 / 选择 / 冒泡 / 插入</title>
+<style>
+  :root {
+    --bg: #0b1020;
+    --panel: #131a2e;
+    --panel-2: #1a2340;
+    --line: #2a3560;
+    --text: #e8ecff;
+    --muted: #8b97c4;
+    --bar: #4b6ef5;
+    --bar-2: #7c5cff;
+    --compare: #ffc857;
+    --swap: #ff6b6b;
+    --pivot: #b06cff;
+    --sorted: #38d39f;
+    --active: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(1200px 600px at 10% -10%, #1c2a5e 0%, transparent 60%),
+      radial-gradient(900px 500px at 110% 10%, #3a1f5e 0%, transparent 55%),
+      var(--bg);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    padding: 22px 28px 10px;
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  header h1 {
+    font-size: 20px;
+    margin: 0;
+    letter-spacing: .5px;
+    font-weight: 650;
+  }
+  header h1 span {
+    background: linear-gradient(90deg, #6f8cff, #b06cff 55%, #33e0b0);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  header .hint { color: var(--muted); font-size: 12.5px; }
+
+  .wrap {
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 16px;
+    padding: 8px 22px 22px;
+    min-height: 0;
+  }
+  @media (max-width: 900px) {
+    .wrap { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: linear-gradient(180deg, rgba(26,35,64,.92), rgba(19,26,46,.92));
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 18px 50px -20px rgba(0,0,0,.9), inset 0 1px 0 rgba(255,255,255,.04);
+  }
+
+  /* ---------- 可视化区 ---------- */
+  .stage {
+    position: relative;
+    padding: 18px 18px 10px;
+    display: flex;
+    flex-direction: column;
+    min-height: 420px;
+  }
+  .stage-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .algo-name {
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .algo-name b { color: var(--text); font-size: 16px; }
+  .stats { display: flex; gap: 10px; flex-wrap: wrap; }
+  .stat {
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--muted);
+    background: rgba(255,255,255,.045);
+    border: 1px solid var(--line);
+    padding: 5px 10px;
+    border-radius: 999px;
+  }
+  .stat b { color: var(--text); font-weight: 600; margin-left: 4px; }
+
+  #bars {
+    flex: 1;
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    min-height: 300px;
+    padding: 12px 6px 0;
+    border-radius: 12px;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.02), rgba(0,0,0,.18)),
+      repeating-linear-gradient(0deg, transparent 0 39px, rgba(255,255,255,.035) 39px 40px);
+    overflow: hidden;
+  }
+  .bar {
+    flex: 1 1 0;
+    min-width: 3px;
+    border-radius: 4px 4px 2px 2px;
+    background: linear-gradient(180deg, var(--bar-2), var(--bar));
+    transition: height .16s ease, background .12s ease, transform .12s ease;
+    position: relative;
+    transform-origin: bottom center;
+  }
+  .bar.compare { background: linear-gradient(180deg, #ffd67a, var(--compare)); }
+  .bar.swap    { background: linear-gradient(180deg, #ff9a9a, var(--swap)); }
+  .bar.pivot   { background: linear-gradient(180deg, #d7a8ff, var(--pivot)); }
+  .bar.sorted  { background: linear-gradient(180deg, #7bf0bd, var(--sorted)); }
+  .bar .tag {
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: var(--muted);
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity .15s;
+  }
+  .bar.show-tag .tag { opacity: 1; }
+
+  /* ---------- 控制区 ---------- */
+  .controls {
+    padding: 14px 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .tab {
+    cursor: pointer;
+    border: 1px solid var(--line);
+    background: rgba(255,255,255,.03);
+    color: var(--muted);
+    padding: 9px 10px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 550;
+    transition: all .15s;
+  }
+  .tab:hover { color: var(--text); border-color: #3c4c86; }
+  .tab.on {
+    color: #fff;
+    border-color: transparent;
+    background: linear-gradient(135deg, #4b6ef5, #7c5cff);
+    box-shadow: 0 8px 24px -10px #5b6cff;
+  }
+
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .btn {
+    flex: 1;
+    min-width: 84px;
+    cursor: pointer;
+    border: 1px solid var(--line);
+    background: rgba(255,255,255,.045);
+    color: var(--text);
+    padding: 9px 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all .15s;
+  }
+  .btn:hover:not(:disabled) { border-color: #4a5da0; background: rgba(255,255,255,.08); }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .btn.primary {
+    background: linear-gradient(135deg, #28c58f, #22d3a6);
+    border-color: transparent;
+    color: #06231a;
+    box-shadow: 0 10px 26px -12px #22d3a6;
+  }
+  .btn.danger { background: rgba(255,107,107,.12); border-color: rgba(255,107,107,.4); color: #ffb3b3; }
+
+  .slider-row { display: flex; flex-direction: column; gap: 6px; }
+  .slider-row label {
+    display: flex; justify-content: space-between;
+    font-size: 12px; color: var(--muted);
+  }
+  .slider-row label b { color: var(--text); font-variant-numeric: tabular-nums; }
+  input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 99px;
+    background: linear-gradient(90deg, #4b6ef5, #7c5cff);
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #fff;
+    border: 3px solid #6b7cff;
+    box-shadow: 0 2px 8px rgba(0,0,0,.5);
+    cursor: pointer;
+  }
+
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11.5px; color: var(--muted); }
+  .legend i {
+    width: 10px; height: 10px; border-radius: 3px; display: inline-block;
+    margin-right: 5px; vertical-align: -1px;
+  }
+
+  /* ---------- 侧栏 ---------- */
+  .side { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+  .card { padding: 16px 18px; }
+  .card h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1.4px;
+    color: var(--muted);
+    margin: 0 0 12px;
+    font-weight: 650;
+  }
+
+  pre.code {
+    margin: 0;
+    font-family: "Cascadia Code", Consolas, "SF Mono", Menlo, monospace;
+    font-size: 12px;
+    line-height: 1.85;
+    color: #b9c4ea;
+    overflow: auto;
+    max-height: 320px;
+    counter-reset: ln;
+  }
+  pre.code .line {
+    display: block;
+    padding: 0 6px 0 34px;
+    position: relative;
+    border-radius: 6px;
+    white-space: pre;
+    transition: background .12s, color .12s;
+  }
+  pre.code .line::before {
+    counter-increment: ln;
+    content: counter(ln);
+    position: absolute; left: 4px;
+    width: 22px;
+    text-align: right;
+    color: #4e5b8c;
+    font-size: 11px;
+  }
+  pre.code .line.hit {
+    background: rgba(75,110,245,.22);
+    color: #fff;
+    box-shadow: inset 2px 0 0 #6b8cff;
+  }
+
+  .log {
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: 11.5px;
+    color: var(--muted);
+    line-height: 1.75;
+    overflow: hidden;
+    flex: 1;
+    min-height: 80px;
+  }
+  .log div { white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+  .log div:first-child { color: var(--text); }
+
+  footer { text-align: center; color: #5f6b96; font-size: 11.5px; padding: 0 0 14px; }
+  .kbd {
+    font-family: inherit;
+    background: rgba(255,255,255,.08);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 1px 5px;
+    font-size: 11px;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1><span>排序算法 · 动态可视化</span></h1>
+  <div class="hint">快速排序 / 选择排序 / 冒泡排序 / 插入排序　·　空格播放暂停，R 重新洗牌</div>
+</header>
+
+<div class="wrap">
+  <!-- 左：舞台 -->
+  <section class="panel stage">
+    <div class="stage-top">
+      <div class="algo-name">当前算法：<b id="algoTitle">快速排序</b></div>
+      <div class="stats">
+        <div class="stat">比较<b id="statCmp">0</b></div>
+        <div class="stat">交换<b id="statSwap">0</b></div>
+        <div class="stat">用时<b id="statTime">0.0s</b></div>
+      </div>
+    </div>
+    <div id="bars"></div>
+  </section>
+
+  <!-- 右：控制 + 代码 -->
+  <aside class="side">
+    <section class="panel controls">
+      <div class="tabs" id="tabs">
+        <button class="tab on" data-algo="quick">快速排序</button>
+        <button class="tab" data-algo="selection">选择排序</button>
+        <button class="tab" data-algo="bubble">冒泡排序</button>
+        <button class="tab" data-algo="insertion">插入排序</button>
+      </div>
+
+      <div class="row">
+        <button class="btn primary" id="playBtn">▶ 开始</button>
+        <button class="btn" id="stepBtn">单步</button>
+        <button class="btn danger" id="resetBtn">↺ 重置</button>
+      </div>
+
+      <div class="slider-row">
+        <label>数组规模 <b id="sizeVal">40</b></label>
+        <input type="range" id="sizeRange" min="8" max="100" step="1" value="40" />
+      </div>
+      <div class="slider-row">
+        <label>动画速度 <b id="speedVal">1.0×</b></label>
+        <input type="range" id="speedRange" min="0.2" max="20" step="0.1" value="1" />
+      </div>
+
+      <div class="legend">
+        <span><i style="background:#4b6ef5"></i>未排序</span>
+        <span><i style="background:#ffc857"></i>比较中</span>
+        <span><i style="background:#ff6b6b"></i>交换中</span>
+        <span><i style="background:#b06cff"></i>基准</span>
+        <span><i style="background:#38d39f"></i>已就位</span>
+      </div>
+    </section>
+
+    <section class="panel card" style="display:flex;flex-direction:column;min-height:0;flex:1">
+      <h2>伪代码</h2>
+      <pre class="code" id="codeBox"></pre>
+      <h2 style="margin-top:14px">操作日志</h2>
+      <div class="log" id="logBox"></div>
+    </section>
+  </aside>
+</div>
+
+<footer>纯前端单文件实现 · 无依赖 · 动画由异步生成器驱动 · 按 <span class="kbd">Space</span> 播放/暂停</footer>
+
+<script>
+/* =========================================================
+ *  状态
+ * ========================================================= */
+const $ = (id) => document.getElementById(id);
+const barsEl   = $('bars');
+const logBox   = $('logBox');
+const codeBox  = $('codeBox');
+const playBtn  = $('playBtn');
+const stepBtn  = $('stepBtn');
+const resetBtn = $('resetBtn');
+
+const state = {
+  algo: 'quick',
+  n: 40,
+  values: [],
+  bars: [],
+  playing: false,
+  paused: false,
+  finished: false,
+  speed: 1,
+  cmp: 0,
+  swap: 0,
+  startedAt: 0,
+  elapsed: 0,
+  token: 0,         // 用于取消上一轮动画
+  gen: null,        // 当前动画生成器
+  loopActive: false,
+  sorted: new Set() // 已就位元素，颜色持久保留
+};
+
+/* 每个算法的伪代码（行数需与算法中 yield 的 line 对应） */
+const CODE = {
+  quick: [
+    'function quickSort(a, lo, hi):',
+    '    if lo >= hi: return',
+    '    p = partition(a, lo, hi)',
+    '    quickSort(a, lo, p - 1)',
+    '    quickSort(a, p + 1, hi)',
+    '',
+    'function partition(a, lo, hi):',
+    '    pivot = a[hi]',
+    '    i = lo',
+    '    for j = lo .. hi - 1:',
+    '        if a[j] < pivot:',
+    '            swap(a[i], a[j]); i++',
+    '    swap(a[i], a[hi])',
+    '    return i'
+  ],
+  selection: [
+    'function selectionSort(a):',
+    '    for i = 0 .. n - 2:',
+    '        min = i',
+    '        for j = i + 1 .. n - 1:',
+    '            if a[j] < a[min]:',
+    '                min = j',
+    '        swap(a[i], a[min])'
+  ],
+  bubble: [
+    'function bubbleSort(a):',
+    '    for i = 0 .. n - 2:',
+    '        swapped = false',
+    '        for j = 0 .. n - 2 - i:',
+    '            if a[j] > a[j + 1]:',
+    '                swap(a[j], a[j + 1])',
+    '                swapped = true',
+    '        if not swapped: break'
+  ],
+  insertion: [
+    'function insertionSort(a):',
+    '    for i = 1 .. n - 1:',
+    '        key = a[i]',
+    '        j = i - 1',
+    '        while j >= 0 and a[j] > key:',
+    '            a[j + 1] = a[j]',
+    '            j--',
+    '        a[j + 1] = key'
+  ]
+};
+
+const TITLES = {
+  quick: '快速排序',
+  selection: '选择排序',
+  bubble: '冒泡排序',
+  insertion: '插入排序'
+};
+
+/* =========================================================
+ *  基础工具
+ * ========================================================= */
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function randInt(max) { return Math.floor(Math.random() * max); }
+
+function shuffleValues(n) {
+  const arr = Array.from({ length: n }, (_, i) => i + 1);
+  for (let i = n - 1; i > 0; i--) {
+    const j = randInt(i + 1);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function maxOf(arr) { return Math.max(...arr); }
+
+/* ---------- 渲染 ---------- */
+function buildBars() {
+  barsEl.innerHTML = '';
+  state.bars = [];
+  const n = state.values.length;
+  const max = maxOf(state.values);
+  const gap = n > 70 ? 2 : n > 50 ? 3 : 4;
+  barsEl.style.gap = gap + 'px';
+
+  for (let i = 0; i < n; i++) {
+    const b = document.createElement('div');
+    b.className = 'bar';
+    b.style.height = Math.max(2, (state.values[i] / max) * 100) + '%';
+    const tag = document.createElement('span');
+    tag.className = 'tag';
+    tag.textContent = state.values[i];
+    b.appendChild(tag);
+    barsEl.appendChild(b);
+    state.bars.push(b);
+  }
+}
+
+function setBarColor(i, cls) {
+  const b = state.bars[i];
+  if (!b) return;
+  b.classList.remove('compare', 'swap', 'pivot', 'sorted');
+  if (cls) b.classList.add(cls);
+}
+
+function clearColors() {
+  state.bars.forEach((b) => b.classList.remove('compare', 'swap', 'pivot', 'sorted', 'show-tag'));
+}
+
+function markSortedUpTo(indices) {
+  indices.forEach((i) => setBarColor(i, 'sorted'));
+}
+
+/* 刷新高度（值可能被原地覆盖，如插入排序） */
+function syncHeights() {
+  const max = maxOf(state.values);
+  for (let i = 0; i < state.values.length; i++) {
+    const b = state.bars[i];
+    b.style.height = Math.max(2, (state.values[i] / max) * 100) + '%';
+    b.querySelector('.tag').textContent = state.values[i];
+  }
+}
+
+/* ---------- 代码高亮 ---------- */
+function renderCode(algo) {
+  codeBox.innerHTML = CODE[algo]
+    .map((l) => `<span class="line">${escapeHtml(l) || ' '}</span>`)
+    .join('');
+  highlightLine(-1);
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function highlightLine(idx) {
+  const lines = codeBox.querySelectorAll('.line');
+  lines.forEach((el, i) => el.classList.toggle('hit', i === idx));
+}
+
+/* ---------- 统计与日志 ---------- */
+function updateStats() {
+  $('statCmp').textContent = state.cmp;
+  $('statSwap').textContent = state.swap;
+}
+function log(msg) {
+  const d = document.createElement('div');
+  d.textContent = msg;
+  logBox.prepend(d);
+  while (logBox.children.length > 12) logBox.lastChild.remove();
+}
+
+/* 计时器 */
+let timerId = null;
+function startTimer() {
+  state.startedAt = performance.now() - state.elapsed;
+  clearInterval(timerId);
+  timerId = setInterval(() => {
+    state.elapsed = performance.now() - state.startedAt;
+    $('statTime').textContent = (state.elapsed / 1000).toFixed(1) + 's';
+  }, 100);
+}
+function stopTimer() { clearInterval(timerId); timerId = null; }
+function resetTimer() { stopTimer(); state.elapsed = 0; $('statTime').textContent = '0.0s'; }
+
+/* =========================================================
+ *  动画驱动器：算法均为 async 生成器，yield 出「操作」
+ *  操作类型：{line, cmp:[...], swap:[...], pivot:[...], set:[i,val], done:[...]}
+ * ========================================================= */
+async function* runAlgorithm(algo) {
+  const arr = state.values;
+  switch (algo) {
+    case 'quick':     yield* quickSortGen(arr, 0, arr.length - 1); break;
+    case 'selection': yield* selectionSortGen(arr); break;
+    case 'bubble':    yield* bubbleSortGen(arr); break;
+    case 'insertion': yield* insertionSortGen(arr); break;
+  }
+}
+
+/* ---------- 快速排序 ---------- */
+async function* quickSortGen(a, lo, hi) {
+  if (lo >= hi) {
+    if (lo === hi) yield { line: 1, done: [lo] };
+    return;
+  }
+  yield { line: 2, pivot: [hi], log: `划分区间 [${lo}, ${hi}]，基准 = a[${hi}] = ${a[hi]}` };
+
+  // partition
+  const pivotVal = a[hi];
+  let i = lo;
+  yield { line: 7, pivot: [hi] };
+
+  for (let j = lo; j < hi; j++) {
+    yield { line: 9, cmp: [j, hi], pivot: [hi] };
+    if (a[j] < pivotVal) {
+      if (i !== j) {
+        yield { line: 11, swap: [i, j], pivot: [hi] };
+        [a[i], a[j]] = [a[j], a[i]];
+        syncHeights();
+      }
+      i++;
+    }
+  }
+  if (i !== hi) {
+    yield { line: 12, swap: [i, hi] };
+    [a[i], a[hi]] = [a[hi], a[i]];
+    syncHeights();
+  }
+  yield { line: 13, done: [i] };
+
+  yield* quickSortGen(a, lo, i - 1);
+  yield* quickSortGen(a, i + 1, hi);
+}
+
+/* ---------- 选择排序 ---------- */
+async function* selectionSortGen(a) {
+  const n = a.length;
+  for (let i = 0; i < n - 1; i++) {
+    let min = i;
+    yield { line: 2, pivot: [min], log: `第 ${i + 1} 轮：在 [${i}, ${n - 1}] 中找最小值` };
+    for (let j = i + 1; j < n; j++) {
+      yield { line: 4, cmp: [j, min], pivot: [min] };
+      if (a[j] < a[min]) min = j;
+    }
+    if (min !== i) {
+      yield { line: 6, swap: [i, min] };
+      [a[i], a[min]] = [a[min], a[i]];
+      syncHeights();
+    }
+    yield { line: 6, done: [i] };
+  }
+  yield { done: [n - 1] };
+}
+
+/* ---------- 冒泡排序 ---------- */
+async function* bubbleSortGen(a) {
+  const n = a.length;
+  for (let i = 0; i < n - 1; i++) {
+    let swapped = false;
+    for (let j = 0; j < n - 1 - i; j++) {
+      yield { line: 4, cmp: [j, j + 1] };
+      if (a[j] > a[j + 1]) {
+        yield { line: 5, swap: [j, j + 1] };
+        [a[j], a[j + 1]] = [a[j + 1], a[j]];
+        syncHeights();
+        swapped = true;
+      }
+    }
+    yield { line: 7, done: [n - 1 - i], log: `第 ${i + 1} 轮结束，a[${n - 1 - i}] = ${a[n - 1 - i]} 就位` };
+    if (!swapped) {
+      yield { line: 7, doneAll: true };
+      return;
+    }
+  }
+  yield { doneAll: true };
+}
+
+/* ---------- 插入排序 ---------- */
+async function* insertionSortGen(a) {
+  const n = a.length;
+  if (n > 0) yield { line: 0, done: [0] };
+  for (let i = 1; i < n; i++) {
+    const key = a[i];
+    let j = i - 1;
+    yield { line: 2, pivot: [i], log: `取出 a[${i}] = ${key}，向前插入` };
+    while (j >= 0) {
+      yield { line: 4, cmp: [j], pivot: [j + 1] };
+      if (a[j] > key) {
+        yield { line: 5, swap: [j, j + 1] };
+        a[j + 1] = a[j];
+        syncHeights();
+        j--;
+      } else break;
+    }
+    a[j + 1] = key;
+    syncHeights();
+    // 标记 [0..i] 已有序
+    const doneIdx = [];
+    for (let k = 0; k <= i; k++) doneIdx.push(k);
+    yield { line: 7, done: doneIdx };
+  }
+  yield { doneAll: true };
+}
+
+/* =========================================================
+ *  播放循环
+ * ========================================================= */
+function applyOp(op) {
+  // 清理上一轮临时色，并恢复「已就位」高亮
+  clearColors();
+  state.sorted.forEach((i) => setBarColor(i, 'sorted'));
+
+  if (op.line !== undefined) highlightLine(op.line);
+  if (op.done) op.done.forEach((i) => state.sorted.add(i));
+  if (op.doneAll) for (let i = 0; i < state.bars.length; i++) state.sorted.add(i);
+
+  if (op.cmp) {
+    state.cmp++;
+    updateStats();
+    op.cmp.forEach((i) => setBarColor(i, 'compare'));
+  }
+  if (op.swap) {
+    state.swap++;
+    updateStats();
+    op.swap.forEach((i) => setBarColor(i, 'swap'));
+  }
+  if (op.pivot) op.pivot.forEach((i) => setBarColor(i, 'pivot'));
+  if (op.done) op.done.forEach((i) => setBarColor(i, 'sorted'));
+  if (op.doneAll) {
+    for (let i = 0; i < state.bars.length; i++) setBarColor(i, 'sorted');
+  }
+  if (op.log) log(op.log);
+}
+
+function baseDelay() {
+  // 规模越大 -> 单步越快；速度倍率线性放大
+  const n = state.n;
+  const raw = n <= 20 ? 160 : n <= 40 ? 90 : n <= 70 ? 45 : 24;
+  return raw / state.speed;
+}
+
+function startRun() {
+  state.gen = runAlgorithm(state.algo);
+  state.cmp = 0;
+  state.swap = 0;
+  state.sorted = new Set();
+  updateStats();
+  $('statTime').textContent = '0.0s';
+  log(`▶ 开始 ${TITLES[state.algo]}，共 ${state.n} 个元素`);
+  startTimer();
+}
+
+function finishRun(prefix) {
+  state.playing = false;
+  state.finished = true;
+  state.gen = null;
+  stopTimer();
+  for (let i = 0; i < state.bars.length; i++) state.sorted.add(i);
+  clearColors();
+  for (let i = 0; i < state.bars.length; i++) setBarColor(i, 'sorted');
+  highlightLine(-1);
+  playBtn.textContent = '▶ 重新播放';
+  playBtn.disabled = false;
+  stepBtn.disabled = true;
+  log(`${prefix}：比较 ${state.cmp} 次，交换 ${state.swap} 次，用时 ${(state.elapsed / 1000).toFixed(1)}s`);
+}
+
+async function playLoop(token) {
+  while (true) {
+    if (token !== state.token) return;          // 被取消
+    while (state.paused) {
+      if (token !== state.token) return;
+      await sleep(60);
+    }
+    const { value, done } = await state.gen.next();
+    if (done) { finishRun('✔ 完成'); return; }
+    applyOp(value);
+    if (value.doneAll) {
+      await sleep(Math.max(140, baseDelay()));
+      finishRun('✔ 完成');
+      return;
+    }
+    await sleep(baseDelay());
+  }
+}
+
+function beginLoop() {
+  if (state.loopActive) return;
+  state.loopActive = true;
+  const token = state.token;
+  playLoop(token).finally(() => {
+    if (token === state.token) state.loopActive = false;
+  });
+}
+
+/* ---------- 单步 ---------- */
+async function stepOnce() {
+  if (state.finished) return;
+  if (!state.gen) startRun();
+  const { value, done } = await state.gen.next();
+  if (done) { finishRun('✔ 单步走完'); return; }
+  applyOp(value);
+  if (value.doneAll) finishRun('✔ 单步走完');
+}
+
+/* =========================================================
+ *  控制
+ * ========================================================= */
+function resetArray() {
+  state.token++;                 // 取消正在跑的动画
+  state.gen = null;
+  state.loopActive = false;
+  state.playing = false;
+  state.paused = false;
+  state.finished = false;
+  state.cmp = 0;
+  state.swap = 0;
+  state.sorted = new Set();
+  updateStats();
+  resetTimer();
+  state.values = shuffleValues(state.n);
+  buildBars();
+  highlightLine(-1);
+  logBox.innerHTML = '';
+  log(`已生成 ${state.n} 个随机数，等待开始`);
+  playBtn.textContent = '▶ 开始';
+  playBtn.disabled = false;
+  stepBtn.disabled = false;
+}
+
+function togglePlay() {
+  if (state.finished) {
+    resetArray();
+    togglePlay();
+    return;
+  }
+  if (!state.playing) {
+    state.playing = true;
+    state.paused = false;
+    playBtn.textContent = '❚❚ 暂停';
+    stepBtn.disabled = true;
+    if (!state.gen) startRun();
+    beginLoop();
+  } else if (!state.paused) {
+    state.paused = true;
+    playBtn.textContent = '▶ 继续';
+    stepBtn.disabled = false;   // 暂停时可以单步
+  } else {
+    state.paused = false;
+    playBtn.textContent = '❚❚ 暂停';
+    if (!state.gen) startRun();
+    beginLoop();          // 单步之后直接接着跑
+  }
+}
+
+function switchAlgo(algo) {
+  state.algo = algo;
+  document.querySelectorAll('.tab').forEach((t) =>
+    t.classList.toggle('on', t.dataset.algo === algo)
+  );
+  $('algoTitle').textContent = TITLES[algo];
+  renderCode(algo);
+  resetArray();
+}
+
+/* ---------- 事件绑定 ---------- */
+document.querySelectorAll('.tab').forEach((t) => {
+  t.addEventListener('click', () => switchAlgo(t.dataset.algo));
+});
+
+playBtn.addEventListener('click', togglePlay);
+resetBtn.addEventListener('click', resetArray);
+
+stepBtn.addEventListener('click', () => {
+  if (state.loopActive) return;
+  state.playing = false;
+  state.paused = false;
+  playBtn.textContent = '▶ 继续';
+  stepOnce();
+});
+
+$('sizeRange').addEventListener('input', (e) => {
+  state.n = +e.target.value;
+  $('sizeVal').textContent = state.n;
+  resetArray();
+});
+
+$('speedRange').addEventListener('input', (e) => {
+  state.speed = +e.target.value;
+  $('speedVal').textContent = state.speed.toFixed(1) + '×';
+});
+
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+  if (e.key === 'r' || e.key === 'R') resetArray();
+});
+
+/* ---------- 初始化 ---------- */
+renderCode(state.algo);
+resetArray();
+</script>
+</body>
+</html>
